@@ -1,31 +1,18 @@
-import undetected_chromedriver.v2 as uc
+# Импорт нужных библиотек и скриптов
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 import captcha_resolver
 import time
 import asyncio
 import random
+import datetime
 import csv
+import data_base_connector as db
+from bot import set_up_bot
 
-# Натсройка веб - драйвера
-options = uc.ChromeOptions()
-options.add_argument('--disable-blink-features=AutomationControlled')
-options.add_argument("--disable-extensions")
-options.add_experimental_option('useAutomationExtension', False)
-options.add_experimental_option("excludeSwitches", ["enable-automation"])
-options.add_extension('C:/Users/LevSo/Downloads')
-driver = uc.Chrome()
-driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-driver.delete_all_cookies()
-driver.clear_cdp_listeners()
 
 only_fans_url = 'http://onlyfans.com'
-
-bot_username = 'bukharkinavip.vanessa@yahoo.com'
-bot_password = 'Swnessa70135632'
-
 prev_comment = ""
-
 comments = [
     "loved it",
     "mmm gorgeous ",
@@ -58,177 +45,237 @@ comments = [
     "Sweet and hot"
 ]
 
-# получаем модели
-models = []
-with open('models.csv') as File:
-    reader = csv.reader(File)
-    for row in reader:
-        if row:
-            models.append(''.join(row)[21:])
 
-# получаем последнюю модель, на которой остановились
-with open('last_model.txt') as f:
-    last_model = int(f.readline())
-    print("Индекс модели, с которой закончили : ", last_model)
+# --------------------------- Работа с БД ---------------------------
+
+# Получаем аккаунты
+accounts = db.get_accounts()
+
+# Получаем модели
+models = db.get_models()
+
+# --------------------------- Работа с БД ---------------------------
 
 
-async def capcha_solver():
-    captcha = driver.find_element_by_css_selector('body > div:nth-child(7) > div:nth-child(1) > iframe')
-    print(captcha.get_attribute('outerHTML'))
-
-    if "hcaptcha" in driver.page_source.lower():
-        print("На сайте используется hCaptcha")
-        # Находим sitekey для решения капчи
-        src = str(captcha.get_attribute('src'))
-        i = src.find("sitekey") + 8
-        sitekey = src[i: - 27]
-
-        print("Sitekey нашей капчи : ", sitekey)
-
-        # Отправляем нешему резолверу sitekey
-        token = captcha_resolver.bypass_captcha(sitekey)
-        await asyncio.sleep(3)
-        print("Наш токен #1 : ", token, "\n----------------------------------------------------------------")
-        await asyncio.sleep(3)
-        text = driver.find_elements_by_css_selector('#hcap-script > textarea')[0]
-        button_login = driver.find_element_by_css_selector('body > div.main-wrapper > '
-                                                           'div.login_content > div > div > '
-                                                           'div:nth-child(2) > div > form > button')
-
-        # Делаем видимой область для вставки решенного токена для нашей капчи
-        driver.execute_script("arguments[0].setAttribute('style','')", text)
-        await asyncio.sleep(random.randint(1, 3))
-        # Делаем видимым кнопку Login
-        driver.execute_script("document.querySelector('[type^=submit]').removeAttribute('disabled')")
-        await asyncio.sleep(random.randint(1, 3))
-        button_login.click()
-        await asyncio.sleep(random.randint(1, 3))
-        text.send_keys(token)
-        button_login.click()
-        await asyncio.sleep(5)
-
-    elif "recaptcha" in driver.page_source.lower():
-        print("На сайте используется reCAPTCHA")
+def exist(elem, name="div", by="selector"):
+    try:
+        if by == "selector":
+            elem.find_element_by_css_selector(name)
+        elif by == "id":
+            elem.find_element_by_id(name)
+        elif by == "class":
+            elem.find_element_by_class_name(name)
+        elif by == "tag":
+            elem.find_element_by_tag_name(name)
+    except NoSuchElementException:
+        return False
+    return True
 
 
+# Проверка на рекламу
+def has_adv(post):
+    if exist(post, "b-post__text-el", "class"):
+        if exist(post.find_element_by_class_name("b-post__text-el"), "a", "tag"):
+            return True
+        return False
+
+
+# Проверка на подписку
 def subscribed(sub_txt):
-    return "подписной" in sub_txt.text.lower()
+    return "подписной" in sub_txt[0].text.lower()
 
 
+# Провекра что подписка бесплатная
+def free(sub_txt):
+    return "бесплатно" in sub_txt[1].text.lower()
+
+
+# Проверка что лайк поставлен
 def liked(post):
     like = post.find_element_by_class_name('b-post__tools').find_element_by_tag_name('button')
     return "m-active" in like.get_attribute('class')
 
 
+# Проверка что комент есть
 def commented(post):
     comment = post.find_element_by_class_name('b-post__tools').find_elements_by_tag_name('button')[1]
-    if not comment.is_enabled():
-        print("Коменты отключены")
-        return True
 
     comment.click()
     time.sleep(3)
 
     if "/u119709885" in post.find_element_by_class_name('b-comments').get_attribute('innerHTML'):
         print("Коментарий уже есть")
-        time.sleep(3)
+        time.sleep(2)
         return True
 
     print("Коментария нет")
     return False
 
 
+def restrict(bot):
+    bot.find_element_by_class_name("b-dropdown-text").click()
+    print(bot.find_element_by_class_name("b-dropdown-text").text)
+    print("Рестрикт !")
+
+
 async def main():
     global prev_comment
-    global last_model
-    driver.get(only_fans_url)
-    await asyncio.sleep(random.randint(2, 5))
+    for account in accounts:
+        print(f"Аккаунт : {account[0]}")
+        bot = set_up_bot(account)
+        # time.sleep(5)
+        # last_sub_time = datetime.datetime.strptime(db.get_subs(accounts[0], last=True)[1], '%Y-%m-%d %H:%M:%S.%f')
 
-    username = driver.find_elements_by_class_name('v-text-field__slot')[0].find_element_by_tag_name('input')
-    password = driver.find_elements_by_class_name('v-text-field__slot')[1].find_element_by_tag_name('input')
+        if not db.get_subs(account):
+            last_model = 0
+        else:
+            last_model = models.index(db.get_model(db.get_subs(account, last=True)[0]))
+        print("Индекс модели с которой законяили на этом аккаунте : ", last_model)
 
-    # Отправляем в поля username и password и нажимаем ENTER
-    username.send_keys(bot_username)
-    await asyncio.sleep(random.randint(2, 3))
-    password.send_keys(bot_password)
-    await asyncio.sleep(random.randint(1, 3))
-    password.send_keys(Keys.ENTER)
-    await asyncio.sleep(random.randint(2, 5))
-    # await asyncio.sleep(10)
-    # password.send_keys(Keys.ENTER)
-    # await asyncio.sleep(3)
+        if db.get_today_subs(account) == 0:
+            print("Кол-во подписок на сегодня : ", db.get_today_subs(account))
+            # print("Делаем проверку на прохождение 24 часов...")
+            # if (datetime.datetime.now() - last_sub_time).days >= 1:
+            #     print("24 часа прошли можно начинать подписываться")
+            # else:
+            #     print("24 часа ещё не прошли подписываться нельзя, переходим к следующему аккаунту...")
+            #     continue
+        if db.get_today_subs(account) == 100:
+            print("100 подписок есть на аккаунте : ", account[0])
+            bot.close()
+            bot.quit()
+            continue
 
-    # Начинаем проходиться по списку модолей (ссылок)
-    for _ in range(100):
-        await asyncio.sleep(random.randint(2, 5))
-        driver.get(only_fans_url + '/' + models[last_model])
-        print("----------------------------------------------")
-        print("Переходим к модели : ", models[last_model])
-        await asyncio.sleep(5)
-        sub_txt = driver.find_element_by_class_name('b-btn-text')
+        # Переходим на стартовую страницу
+        bot.get(only_fans_url)
+        time.sleep(random.randint(4, 6))
 
-        # Подписываемся если не подписались
-        if not subscribed(sub_txt):
-            print("Подписываемся на модель : ", models[last_model])
-            sub_txt.click()
-            await asyncio.sleep(random.randint(3, 6))
+        username = bot.find_elements_by_class_name('v-text-field__slot')[0].find_element_by_tag_name('input')
+        password = bot.find_elements_by_class_name('v-text-field__slot')[1].find_element_by_tag_name('input')
 
-        posts = driver.find_elements_by_class_name('b-post__wrapper')
-        await asyncio.sleep(random.randint(2, 4))
+        # Отправляем в поля username и password и нажимаем ENTER
+        username.send_keys(account[0])
+        await asyncio.sleep(random.randint(2, 3))
+        password.send_keys(account[1])
+        await asyncio.sleep(random.randint(1, 3))
+        time.sleep(20)
 
-        # Проверяем посты на лайки и коменты
-        print("Лайкаем и коментируем посты...")
-        i = 0
-        for post in posts:
-            if i == 2:
-                break
+        # Начинаем проходиться по списку модолей (ссылок)
+        while db.get_today_subs(account) < 100:
+            await asyncio.sleep(random.randint(2, 5))
+            bot.get(only_fans_url + '/' + models[last_model])
+            print("----------------------------------------------")
+            print("Переходим к модели : ", models[last_model])
 
-            try:
-                if post.find_element_by_tag_name('div').get_attribute('class') == "b-post m-stream-post is-not-post-page":
-                    print("Первый пост - стрим")
-                    continue
-                post.find_elements_by_tag_name('div')
-            except Exception as err:
-                print("[ОШИБКА] : ", err.args)
+            await asyncio.sleep(5)
+            if exist(bot, "b-404", "class"):
+                last_model += 1
+                continue
+            time.sleep(5)
+
+            # Проверка на то что подписка бесплатная
+            sub_txt = bot.find_elements_by_class_name('b-btn-text')[:2]
+            if not free(sub_txt):
+                print("Это платная модель")
+                last_model += 1
+                # TODO: удалить из БД эту платную модель
                 continue
 
-            if not liked(post) and post.find_element_by_class_name('b-post__tools').find_element_by_tag_name(
-                    'button').is_enabled():
-                post.find_element_by_class_name('b-post__tools').find_element_by_tag_name('button').click()
-                print("Лайк !")
+            # Подписываемся если не подписались
+            if not subscribed(sub_txt):
+                print("Подписываемся на модель : ", models[last_model])
+                sub_txt[0].click()
+                time.sleep(random.randint(5, 8))
+            else:
+                print(f"Мы уже подписаны на {models[last_model]}")
 
-            await asyncio.sleep(random.randint(3, 5))
+            # Записываем подписку в БД
+            if db.get_model_id(models[last_model]) not in db.get_subs(account):
+                db.add_sub(models[last_model], account, datetime.datetime.now())
+            else:
+                print("Такая модель уже есть в БД")
 
-            if not commented(post):
-                print("Пишем коментарий...")
-                driver.execute_script("window.scrollBy(0,250)")
-                await asyncio.sleep(2)
+            time.sleep(3)
+            print(f"Кол-во подписок за этот день : {db.get_today_subs(account)}")
 
-                text_area = post.find_element_by_class_name('b-comments__form').find_element_by_tag_name('textarea')
-                current_comment = comments[random.randint(0, len(comments))]
+            # Находим посты
+            print("Находим посты...")
+            posts = bot.find_elements_by_class_name('b-post__wrapper')
+            time.sleep(random.randint(3, 5))
 
-                while current_comment == prev_comment:
-                    current_comment = comments[random.randint(0, len(comments))]
+            # Фильтруем невидимые посты
+            posts = list(filter(lambda x: exist(x, "div", "tag"), posts))
 
-                await asyncio.sleep(2)
+            # Делаем проверку на рестрикт (нельзя коментить посты)
+            if not list(filter(lambda x: x.find_element_by_class_name(
+                    'b-post__tools').find_elements_by_tag_name('button')[1].is_enabled(), posts)):
+                print("Нельзя комментировать посты")
 
-                text_area.send_keys(current_comment)
-                await asyncio.sleep(2)
-                prev_comment = current_comment
+                restrict_txt = ""
+                bot.find_element_by_class_name("g-icon.has-tooltip").click()
+                if exist(name="b-dropdown-text", by="class"):
+                    restrict_txt = bot.find_element_by_class_name("b-dropdown-text").text
 
-                # Отправляем коментарий...
-                post.find_element_by_class_name('b-comments__form').find_element_by_class_name(
-                    'g-btn.m-rounded.m-icon.m-icon-only.m-colored.m-sm-size.b-comments__btn-submit').click()
-                await asyncio.sleep(random.randint(2, 5))
+                if restrict_txt == "Ограничить":
+                    restrict(bot)
+            else:
+                print("Комментировать посты можно")
 
-            i += 1
+            # Фильтруем посты без рекламы
+            print("Фильтруем посты с рекламой")
+            posts = list(filter(lambda x: not has_adv(x), posts))
 
-        # Передвигаем индекс последней модели
-        last_model += 1
-        with open('last_model.txt', 'w') as f:
-            f.write(str(last_model))
+            # Проверяем посты на лайки и коменты
+            print("Лайкаем и коментируем посты...")
+            i = 0
+            for post in posts:
+                if i == 2:
+                    break
 
-        await asyncio.sleep(random.randint(2, 5))
+                if post.find_element_by_tag_name('div').get_attribute(
+                        'class') == "b-post m-stream-post is-not-post-page":
+                    print("Пост - стрим")
+                    continue
+
+                # Если нет лайка и можно лайкать, то лайкаем пост
+                if post.find_element_by_class_name('b-post__tools').find_element_by_tag_name(
+                        'button').is_enabled() and not liked(post):
+                    post.find_element_by_class_name('b-post__tools').find_element_by_tag_name('button').click()
+                    print("Лайк !")
+
+                time.sleep(random.randint(2, 4))
+
+                # Коменты
+                if post.find_element_by_class_name('b-post__tools').find_elements_by_tag_name(
+                        'button')[1].is_enabled() and not commented(post):
+                    print("Пишем коментарий...")
+                    bot.execute_script("window.scrollBy(0, 300)")
+                    time.sleep(1)
+
+                    # Находим поле для ввода комента
+                    text_area = post.find_element_by_class_name('b-comments__form').find_element_by_tag_name('textarea')
+                    current_comment = comments[random.randint(0, len(comments) - 1)]
+
+                    while current_comment == prev_comment:
+                        current_comment = comments[random.randint(0, len(comments) - 1)]
+
+                    time.sleep(1)
+
+                    text_area.send_keys(current_comment)
+                    await asyncio.sleep(1.5)
+                    prev_comment = current_comment
+
+                    # Отправляем коментарий...
+                    post.find_element_by_class_name('b-comments__form').find_element_by_class_name(
+                        'g-btn.m-rounded.m-icon.m-icon-only.m-colored.m-sm-size.b-comments__btn-submit').click()
+                    await asyncio.sleep(random.randint(2, 4))
+
+                i += 1
+            last_model += 1
+            await asyncio.sleep(random.randint(2, 4))
+        print(f"100 подписок на аккаунте {account[0]}, сделаны")
+        bot.close()
+        bot.quit()
 
 
 # Запускаем бота

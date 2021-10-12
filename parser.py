@@ -1,4 +1,5 @@
 from selenium.webdriver.common.keys import Keys
+import undetected_chromedriver.v2 as uc
 import random
 import asyncio
 import csv
