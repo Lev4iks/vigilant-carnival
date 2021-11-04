@@ -21,7 +21,9 @@ def get_models():
 
 def get_model(id):
     cursor.execute("SELECT ModelLogin FROM models WHERE Id = ?", [id])
-    return cursor.fetchone()[0]
+    res = cursor.fetchall()
+    if res:
+        return res[0][0]
 
 
 def get_accounts():
@@ -39,11 +41,35 @@ def get_subs(account, last=False):
     return models_id
 
 
+def get_today_subs(account):
+    account_id = get_account_id(account)
+    cursor.execute("SELECT Date FROM subs WHERE AccountId = ? ORDER BY Date DESC", [account_id])
+    today = datetime.datetime.today().date()
+    last_100_subs = [datetime.datetime.strptime(value[0][:10], '%Y-%m-%d').date() for value in cursor.fetchmany(100)]
+    return len(list(filter(lambda x: x == today, last_100_subs)))
+
+
+def get_locations():
+    locations = [value[0] for value in cursor.execute("SELECT Location FROM locations WHERE IsUsed = ?", [0])]
+    return locations
+
+
+def get_last_parse_date():
+    cursor.execute("SELECT UsageDate FROM locations ORDER BY UsageDate DESC")
+    return datetime.datetime.strptime(cursor.fetchone()[0][:10], '%Y-%m-%d').date()
+
+
+def get_comments():
+    comments = [value[0] for value in cursor.execute("SELECT comment FROM Comments")]
+    return comments
+
+
 def add_models(models):
     temp = len(get_models())
     for model in models:
         cursor.execute(f"INSERT INTO models(ModelLogin) VALUES(?)", [model])
         db.commit()
+    db.commit()
     print("Кол-во новых записей : ", len(get_models()) - temp)
 
 
@@ -62,12 +88,4 @@ def add_sub(model, account, date):
 
 
 def delete_model(model):
-    pass
-
-
-def get_today_subs(account):
-    account_id = get_account_id(account)
-    cursor.execute("SELECT Date FROM subs WHERE AccountId = ? ORDER BY Date DESC", [account_id])
-    today = datetime.datetime.today().date()
-    last_100_subs = [datetime.datetime.strptime(value[0][:10], '%Y-%m-%d').date() for value in cursor.fetchmany(100)]
-    return len(list(filter(lambda x: x == today, last_100_subs)))
+    cursor.execute("DELETE FROM models WHERE ModelLogin = ?", [model])

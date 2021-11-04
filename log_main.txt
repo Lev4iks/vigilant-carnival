@@ -1,0 +1,2 @@
+Ошибка - Message: invalid session id
+ type(err)=<class 'selenium.common.exceptions.InvalidSessionIdException'>, ('invalid session id', None, None), 2021-10-17 15:49:14.424687
