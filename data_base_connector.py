@@ -89,3 +89,7 @@ def add_sub(model, account, date):
 
 def delete_model(model):
     cursor.execute("DELETE FROM models WHERE ModelLogin = ?", [model])
+
+
+def delete_model_from_subs(model):
+    cursor.execute("DELETE FROM subs WHERE ModelLogin = ?", [get_model_id(model)])

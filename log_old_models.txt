@@ -1,3 +1,2 @@
-Ошибка - Message: element click intercepted: Element <button type="submit" disabled="disabled" class="g-btn m-rounded m-icon m-icon-only m-colored m-sm-size b-comments__btn-submit">...</button> is not clickable at point (781, 944). Other element would receive the click: <form class="b-comments__form">...</form>
-  (Session info: chrome=94.0.4606.81)
- type(err)=<class 'selenium.common.exceptions.ElementClickInterceptedException'>, 2021-10-20 12:40:03.862899
+Ошибка - Message: Tried to run command without establishing a connection
+ type(err)=<class 'selenium.common.exceptions.InvalidSessionIdException'>, 2021-11-09 15:18:06.621779

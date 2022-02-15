@@ -86,7 +86,7 @@ def new_models():
         password.send_keys(Keys.ENTER)
         time.sleep(30)
 
-        # Начинаем проходиться по списку модолей (ссылок)
+        # Начинаем проходиться по списку моделей (ссылок)
         while db.get_today_subs(account) < 100:
             try:
                 time.sleep(random.randint(2, 5))
@@ -153,6 +153,7 @@ def new_models():
                 print("Количество постов, которые можно комментировать : ", len(posts))
                 if not posts:
                     print("Нельзя комментировать посты")
+                    db.delete_model_from_subs(models[last_model])
 
                     restrict_txt = ""
                     if exist(bot, name="b-dropdown-wrapper", by="class"):
@@ -174,6 +175,7 @@ def new_models():
                     if restrict_txt == "Ограничить":
                         restrict(bot)
                     elif restrict_txt == "Неограниченный":
+
                         print("Модель уже в рестрикте")
                     print("Переходим к следующей моделе")
                     last_model += 1
@@ -186,63 +188,59 @@ def new_models():
                 posts = list(filter(lambda x: not has_adv(x), posts))
                 print("Количество постов без рекламы : ", len(posts))
 
+                post = posts[0]
+
                 # Проверяем посты на лайки и коменты
                 print("Лайкаем и коментируем посты...")
-                i = 0
-                for post in posts:
-                    if i == 2:
-                        break
 
-                    if post.find_element_by_tag_name('div').get_attribute(
-                            'class') == "b-post m-stream-post is-not-post-page":
-                        print("Пост - стрим")
-                        continue
+                if post.find_element_by_tag_name('div').get_attribute(
+                        'class') == "b-post m-stream-post is-not-post-page":
+                    print("Пост - стрим")
+                    continue
 
-                    # Если нет лайка и можно лайкать, то лайкаем пост
-                    if post.find_element_by_class_name('b-post__tools').find_element_by_tag_name(
-                            'button').is_enabled() and not liked(post):
-                        post.find_element_by_class_name('b-post__tools').find_element_by_tag_name('button').click()
-                        print("Лайк !")
+                # Если нет лайка и можно лайкать, то лайкаем пост
+                if post.find_element_by_class_name('b-post__tools').find_element_by_tag_name(
+                        'button').is_enabled() and not liked(post):
+                    post.find_element_by_class_name('b-post__tools').find_element_by_tag_name('button').click()
+                    print("Лайк !")
 
-                    time.sleep(random.randint(2, 4))
+                time.sleep(random.randint(2, 4))
 
-                    # Коменты
-                    if post.find_element_by_class_name('b-post__tools').find_elements_by_tag_name(
-                            'button')[1].is_enabled() and not commented(post, nickname):
-                        print("Пишем коментарий...")
-                        bot.execute_script("window.scrollBy(0, 300)")
-                        time.sleep(1)
+                # Коменты
+                if not commented(post, nickname):
+                    print("Пишем коментарий...")
+                    bot.execute_script("window.scrollBy(0, 300)")
+                    time.sleep(1)
 
-                        JS_ADD_TEXT_TO_INPUT = """
-                                                  var elm = arguments[0], txt = arguments[1];
-                                                  elm.value += txt;
-                                                  elm.dispatchEvent(new Event('change'));
-                                                  """
+                    JS_ADD_TEXT_TO_INPUT = """
+                                              var elm = arguments[0], txt = arguments[1];
+                                              elm.value += txt;
+                                              elm.dispatchEvent(new Event('change'));
+                                              """
 
-                        # Находим поле для ввода комента
-                        text_area = post.find_element_by_class_name('b-comments__form').find_element_by_tag_name(
-                            'textarea')
+                    # Находим поле для ввода комента
+                    text_area = post.find_element_by_class_name('b-comments__form').find_element_by_tag_name(
+                        'textarea')
+
+                    current_comment = comments[random.randint(0, len(comments) - 1)]
+                    while current_comment == prev_comment:
                         current_comment = comments[random.randint(0, len(comments) - 1)]
 
-                        while current_comment == prev_comment:
-                            current_comment = comments[random.randint(0, len(comments) - 1)]
+                    time.sleep(1)
 
-                        time.sleep(1)
+                    text_area.send_keys(" ")
+                    time.sleep(0.5)
+                    bot.execute_script(JS_ADD_TEXT_TO_INPUT, text_area, current_comment)
+                    time.sleep(0.5)
+                    text_area.send_keys(" ")
+                    time.sleep(0.5)
+                    prev_comment = current_comment
 
-                        text_area.send_keys(" ")
-                        time.sleep(0.5)
-                        bot.execute_script(JS_ADD_TEXT_TO_INPUT, text_area, current_comment)
-                        time.sleep(0.5)
-                        text_area.send_keys(" ")
-                        time.sleep(0.5)
-                        prev_comment = current_comment
+                    # Отправляем коментарий...
+                    post.find_element_by_class_name('b-comments__form').find_element_by_class_name(
+                        'g-btn.m-rounded.m-icon.m-icon-only.m-colored.m-sm-size.b-comments__btn-submit').click()
+                    time.sleep(random.randint(2, 4))
 
-                        # Отправляем коментарий...
-                        post.find_element_by_class_name('b-comments__form').find_element_by_class_name(
-                            'g-btn.m-rounded.m-icon.m-icon-only.m-colored.m-sm-size.b-comments__btn-submit').click()
-                        time.sleep(random.randint(2, 4))
-
-                    i += 1
                 last_model += 1
                 time.sleep(random.randint(2, 4))
             except Exception as err:
@@ -313,6 +311,7 @@ def old_models():
                 print("Количество постов, которые можно комментировать : ", len(posts))
                 if not posts:
                     print("Нельзя комментировать посты")
+                    db.delete_model_from_subs(model)
 
                     restrict_txt = ""
                     if exist(bot, name="b-dropdown-wrapper", by="class"):

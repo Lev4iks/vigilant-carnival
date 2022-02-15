@@ -5,7 +5,9 @@ import datetime
 import random
 import time
 
+
 only_finder_url = 'http://onlyfinder.com'
+only_finder_free_url = 'https://onlyfinder.com/female-free/profiles/'
 
 
 def set_up_parser():
@@ -32,9 +34,8 @@ def parse_models(driver):
         print("Переходим на сайт : ", only_finder_url)
         driver.get(only_finder_url)
         driver.reconnect()
-        # Обходим cloudflare и сразу переходим на сайт : http://onlyfinder.com//profiles?q=free
-        driver.get(only_finder_url + '/profiles?q=free')
-        time.sleep(random.randint(2, 5))
+        driver.get(only_finder_free_url)
+        time.sleep(random.randint(3, 6))
 
         # Вбиваем в строку происка локацию
         search = driver.find_element_by_css_selector('#navbar-input')
@@ -46,7 +47,8 @@ def parse_models(driver):
         page = driver.find_element_by_css_selector('body')
         page_url = driver.current_url
         # Скролим вниз пока не дойдем до самого низа
-        while driver.current_url != page_url + "984/":
+        for i in range(200):
+            page.send_keys(Keys.PAGE_DOWN)
             page.send_keys(Keys.PAGE_DOWN)
             time.sleep(0.5)
 
@@ -57,6 +59,7 @@ def parse_models(driver):
             f.write(f"Ошибка - {err} {type(err)=}, {datetime.datetime.now()}")
             f.close()
         print("Какая-то ошибка в работе парсера")
+        return
 
     # Находим все результаты о моделях и потом записываем все ссылки на профили моделей
     results = driver.find_elements_by_class_name('result')

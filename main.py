@@ -33,13 +33,13 @@ def main():
 
     # --------------------------- Работа с Парсером ---------------------------
 
-    if (datetime.datetime.today().date() - db.get_last_parse_date()).days >= 3:
-        parse_models(set_up_parser())
-        print("Прошло 3 дня, нужно спарсить новые модели")
-    else:
-        print("Три дня не прошло, парсить нельзя")
-        print("Дата последнего парсинга : ", db.get_last_parse_date())
-    time.sleep(5)
+    # if (datetime.datetime.today().date() - db.get_last_parse_date()).days >= 3:
+    #     parse_models(set_up_parser())
+    #     print("Прошло 3 дня, нужно спарсить новые модели")
+    # else:
+    #     print("Три дня не прошло, парсить нельзя")
+    #     print("Дата последнего парсинга : ", db.get_last_parse_date())
+    # time.sleep(5)
 
     # --------------------------- Работа с Парсером ---------------------------
 
